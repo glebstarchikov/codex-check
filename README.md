@@ -1,8 +1,8 @@
 # codex-check
 
-> A wrapper plugin for [Claude Code](https://claude.com/claude-code) that adds auto-trigger boundaries, output triage, and per-project setup on top of [openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc).
+> A [Claude Code](https://claude.com/claude-code) plugin that adds auto-trigger boundaries, output triage, and per-project setup around the [OpenAI Codex CLI](https://github.com/openai/codex), so Claude reaches for a second-opinion review on the work that matters.
 
-The official OpenAI plugin gives Claude Code users `/codex:review` and `/codex:adversarial-review`. **codex-check** sits above those primitives so Claude knows *when* to invoke them on its own work, and how to triage what comes back.
+**codex-check** calls `codex` directly. It does not require the [openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc) Claude Code plugin (though they coexist fine — install both if you also want interactive `/codex:review`, `/codex:rescue`, etc.).
 
 ## What you get
 
@@ -15,20 +15,17 @@ The official OpenAI plugin gives Claude Code users `/codex:review` and `/codex:a
 ## Prerequisites
 
 - [Claude Code](https://claude.com/claude-code)
-- [openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc) installed and authenticated. ChatGPT subscription (Plus/Team/Enterprise) or OpenAI API key.
+- The [`codex` CLI](https://github.com/openai/codex), installed and authenticated. ChatGPT subscription (Plus / Team / Enterprise) or OpenAI API key.
 
 ## Install
 
-**Step 1 — install the upstream plugin** (once globally):
+**Step 1 — install the codex CLI** (once globally):
 
 ```bash
-# Inside Claude Code:
-/plugin marketplace add openai/codex-plugin-cc
-/plugin install codex@openai-codex
-/codex:setup
+npm install -g @openai/codex
+codex login          # OAuth via your ChatGPT account
+# OR: export OPENAI_API_KEY=sk-...    # in your shell rc, for API-key auth
 ```
-
-`/codex:setup` walks you through `codex login` if you haven't authenticated yet.
 
 **Step 2 — install codex-check**:
 
@@ -38,7 +35,7 @@ cd ~/codex-check
 ./install.sh
 ```
 
-This symlinks the skill and slash commands into `~/.claude/`. Symlinks (not copies) so `git pull` updates the live install.
+`install.sh` symlinks the skill and slash commands into `~/.claude/`. Symlinks (not copies) so `git pull` updates the live install. It also detects the `codex` binary and prints a clear hint if it isn't found — searches `$PATH` first, then `$HOME/.npm-global/bin`, `$HOME/.bun/bin`, `$HOME/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`.
 
 **Manual install** (if you prefer not to run the script):
 
@@ -91,8 +88,10 @@ Claude fires `/codex-check` on its own when it judges the current work matches t
 
 1. **You or Claude triggers `/codex-check`.**
 2. **Skill builds the review context:** the user's stated intent, the project's CLAUDE.md trigger surfaces, the diff.
-3. **Skill calls** `/codex:adversarial-review <focus-text>` (or `--base <ref>` for branch review). Codex returns findings tagged `[BLOCKER]/[CONCERN]/[NIT]`.
+3. **Skill runs** `codex exec` via Bash, piping in a prompt that tells the agent to `git diff` and review against the 3 axes. Codex returns findings tagged `[BLOCKER]/[CONCERN]/[NIT]` plus a one-line verdict (`SHIP / FIX-FIRST / DISCUSS`).
 4. **Claude triages the output:** groups by severity, surfaces BLOCKERs first, evaluates each finding against its own reading of the diff, surfaces disagreements explicitly, asks you which to address.
+
+For branch-level review, the skill includes a "diff against `<base>...HEAD`" instruction in the prompt instead of relying on a CLI flag (the upstream `codex review --uncommitted` is mutually exclusive with custom prompts at the CLI level — bare `codex exec` is the workaround).
 
 ## Compatibility
 
@@ -102,23 +101,23 @@ Claude fires `/codex-check` on its own when it judges the current work matches t
 | `superpowers:verification-before-completion` | Complementary. Verification = "did tests/typecheck/build pass." codex-check = "did the diff introduce bugs / drift from intent / regress invariants." Both can fire on the same change. |
 | `superpowers:receiving-code-review` | Invoked from codex-check's triage flow when findings are non-trivial. |
 
-### Upstream plugin commands you can use directly
+### Optional: alongside `openai/codex-plugin-cc`
 
-codex-check is a wrapper, not a replacement. These upstream commands from `openai/codex-plugin-cc` work alongside it:
+codex-check has **no hard dependency** on the official OpenAI plugin — both call the same `codex` CLI. If you also install `openai/codex-plugin-cc`, you get a complementary set of interactive slash commands that play well alongside ours:
 
-| Command | When to use |
+| Upstream command | When to use |
 |---|---|
-| `/codex:status [job-id]` | Check a background review queued by codex-check (or any other Codex job). |
-| `/codex:result [job-id]` | Read findings from a completed background job. codex-check will run this automatically when polling, but you can call it directly. |
-| `/codex:cancel [job-id]` | Abort an in-flight background review. |
-| `/codex:rescue` | Different use case — delegate a *task* (investigation, fix attempt) to Codex rather than ask for review. Out of scope for codex-check; use upstream directly. |
+| `/codex:review` / `/codex:adversarial-review` | Manually fire a Codex review with the upstream's interactive UX (streaming output, follow-up prompts). |
+| `/codex:rescue` | Delegate a *task* (investigation, fix attempt) to Codex — different use case from review. |
+| `/codex:status` / `/codex:result` / `/codex:cancel` | Manage in-flight Codex background jobs (queued by `--background` from `/codex:adversarial-review`). |
+| `/codex:setup --enable-review-gate` | Stop-hook that auto-fires Codex on every Claude turn — drains quota fast; opt-in only. |
 
 ## Limitations
 
 - Uses your Codex usage quota (ChatGPT subscription quota or OpenAI API tokens).
-- ~30–90s latency per call (longer for big diffs; use `--background` for those).
+- ~30–90s latency per synchronous call (longer for big diffs).
 - Requires a git repo (uses `git diff` for diff scoping).
-- The `--enable-review-gate` Stop hook (from upstream) is **not** enabled by default. It auto-fires Codex on every Claude turn, which drains quota fast. Enable manually if you want it: `/codex:setup --enable-review-gate`.
+- v0.1.0 runs synchronously only. Background mode is on the roadmap; for now, install `openai/codex-plugin-cc` alongside if you need `--background` behavior on large diffs.
 
 ## Uninstall
 

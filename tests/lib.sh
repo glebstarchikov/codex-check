@@ -16,11 +16,13 @@ make_fake_home() {
 }
 
 # Run the installer or uninstaller with HOME pointing at the fake dir.
+# PATH is also pinned to a minimal known-good set so codex-detection tests
+# can control whether `codex` resolves on the real system PATH.
 run_with_home() {
   local fake_home="$1"
   local script="$2"
   shift 2
-  HOME="$fake_home" bash "$REPO_ROOT/$script" "$@"
+  HOME="$fake_home" PATH="/usr/bin:/bin:/usr/sbin:/sbin" bash "$REPO_ROOT/$script" "$@"
 }
 
 # Assert: a path exists and is a symlink whose target matches the expected absolute path.

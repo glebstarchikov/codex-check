@@ -5,9 +5,16 @@ description: Use after completing complex debugging sessions, multi-file refacto
 
 # codex-check
 
-Wrapper that auto-invokes `/codex:adversarial-review` from `openai/codex-plugin-cc` for a second-opinion review on the current diff. Three review axes: bugs / intent match / invariant fit. Output is triaged by severity and presented to the user with disagreements surfaced explicitly.
+Calls the OpenAI Codex CLI directly (via Bash) for a second-opinion review on the current diff. Three review axes: bugs / intent match / invariant fit. Output is triaged by severity and presented to the user with disagreements surfaced explicitly.
 
-**Prerequisite:** `openai/codex-plugin-cc` must be installed and authenticated. If it isn't, the `/codex:adversarial-review` invocation below will fail; surface the failure verbatim and direct the user to `/codex:setup`. Do not attempt to install or repair codex yourself.
+**Prerequisite:** the `codex` CLI must be installed and authenticated. If `command -v codex` doesn't resolve and none of the fallback paths in `install.sh` find the binary, stop and direct the user to:
+
+```
+npm install -g @openai/codex
+codex login    # OAuth via ChatGPT account, or set OPENAI_API_KEY
+```
+
+Do not attempt to install or repair codex yourself. The `openai/codex-plugin-cc` Claude Code plugin is **not required** — it bundles the same `codex` CLI but adds Claude Code slash commands that we don't depend on. Users may install it for interactive `/codex:review` etc., but codex-check works without it.
 
 ## When to fire
 
@@ -50,34 +57,44 @@ focus on three axes:
 Output severity-tagged findings: [BLOCKER]/[CONCERN]/[NIT]. End with a one-line verdict: SHIP / FIX-FIRST / DISCUSS.
 ```
 
-### 3. Invoke `/codex:adversarial-review`
+### 3. Invoke codex via Bash
 
-Default invocation passes the focus text:
+codex-check calls the Codex CLI directly. **Do NOT emit a `/codex:...` slash command** — Claude Code does not auto-route model-emitted slash commands; they appear as text only.
 
-```
-/codex:adversarial-review <focus text>
-```
-
-For branch-level review (e.g., before opening a PR), use `--base`:
-
-```
-/codex:adversarial-review --base main <focus text>
-```
-
-**Auto-background heuristic.** If the diff is large — over ~500 lines OR touching over ~10 files — default to `--background` rather than blocking the conversation for 1–3 minutes. Quick check before invoking:
+Locate the codex binary (PATH first, then standard install dirs — Bash tool sessions often miss `~/.npm-global/bin` and similar):
 
 ```bash
-git diff --stat <range> | tail -1
-# Look at "N files changed, M insertions(+), K deletions(-)"
+CODEX_BIN="$(command -v codex 2>/dev/null || true)"
+if [[ -z "$CODEX_BIN" ]]; then
+  for c in "$HOME/.npm-global/bin/codex" "$HOME/.bun/bin/codex" "$HOME/.local/bin/codex" "/opt/homebrew/bin/codex" "/usr/local/bin/codex"; do
+    [[ -x "$c" ]] && CODEX_BIN="$c" && break
+  done
+fi
+[[ -z "$CODEX_BIN" ]] && { echo "codex not found — run: npm i -g @openai/codex && codex login"; exit 2; }
 ```
 
-If `N > 10` or `M + K > 500`, run with `--background`. Otherwise run synchronously.
+If `$CODEX_BIN` is empty, surface the install hint (above) and stop. Don't try to install codex yourself.
 
-```
-/codex:adversarial-review --background <focus text>
+Run codex with the focus text (the agent runs `git diff` itself to see the uncommitted diff):
+
+```bash
+"$CODEX_BIN" exec --skip-git-repo-check <<'EOF'
+You are an adversarial code reviewer. Run `git diff` and `git diff --stat` in the current working directory to see uncommitted changes, then review.
+
+<focus text from step 2>
+
+Be concise. Only report findings that materially matter; do not invent issues.
+EOF
 ```
 
-When you queue a background job, surface the job ID to the user immediately and tell them how to check on it (or that you'll check on it when they come back).
+**Why this exact incantation:**
+- `codex exec` (bare, no `review` subcommand) lets us pass a custom prompt via stdin — the agent reads `git diff` itself inside the conversation. The `codex review --uncommitted` subcommand is mutually exclusive with custom prompts at the CLI level (real upstream UX bug); this works around it.
+- `--skip-git-repo-check` avoids a tripwire when codex is invoked from a subdirectory of the repo.
+- Heredoc with `'EOF'` (single-quoted) prevents the shell from expanding `$` references inside the prompt.
+
+**Branch-level review** (e.g., before opening a PR): instead of `--base`, tell the agent in the prompt to diff against a base. Add a line like: *"Run `git diff main...HEAD` to see all changes on this branch, then review."*
+
+**Large diffs:** if `git diff --shortstat HEAD` reports >500 lines or >10 files, the synchronous run will block ~1–3 minutes. v0.1.0 doesn't support background mode (codex CLI's `&` shell-backgrounding loses the session ID needed to retrieve results). Document the wait time to the user before firing.
 
 ### 4. Triage output
 
@@ -93,32 +110,23 @@ When Codex returns findings:
 5. Default offer to user: "Address all valid BLOCKERs and CONCERNs; <N> findings I disagree with — here's why: …; <N> NITs deferred." Ask which to fix.
 6. If the findings are non-trivial (multiple BLOCKERs or significant disagreements), invoke `superpowers:receiving-code-review` for the disciplined feedback-handling flow.
 
-### 5. Background-job follow-up
-
-If you queued a background job in step 3, you own the follow-up:
-
-- **Surface the job ID** in your reply: "Codex review queued as background job `task-abc123`. I'll check on it next turn, or you can run `/codex:status` / `/codex:result` directly."
-- **Next time the user mentions the review** (or after enough conversation has passed that the job is likely done), run `/codex:status <job-id>`. If still running, tell the user. If completed, run `/codex:result <job-id>` and apply the same triage flow from step 4.
-- **Use `/codex:cancel <job-id>`** if the user changes their mind mid-flight (e.g., they've moved on to another problem and don't want to wait).
-- **One in-flight at a time** is the simplest mental model — if a previous codex-check job is still pending, surface that and ask whether to cancel before queueing a new one.
-
-### 6. Anti-recursion
+### 5. Anti-recursion
 
 Do not re-fire codex-check in the next 1–2 turns on the same diff. Re-fire is allowed once you've addressed findings and produced a meaningfully new diff.
 
 ## When dispatched as a subagent
 
-If you were dispatched by `superpowers:subagent-driven-development` and your task touched a high-risk surface, fire `/codex-check` in your worktree *before* reporting completion.
+If you were dispatched by `superpowers:subagent-driven-development` and your task touched a high-risk surface, fire codex-check (run the codex incantation from step 3) in your worktree *before* reporting completion.
 
 - Address all [BLOCKER] and [CONCERN] findings you agree with directly — fix and re-test.
 - Surface [NIT]s and any disagreements in your completion report to the parent.
 - Skip step 4's "ask user which to fix" — the parent triages.
 
-The parent should fire a second `/codex-check --base <integration-base>` after merging all subagents to catch integration-level issues that no single subagent's review could have spotted.
+The parent should run codex-check again on the integration branch's full diff (instruct codex to `git diff <integration-base>...HEAD` in the prompt) after merging all subagents, to catch integration-level issues that no single subagent's review could have spotted.
 
 ## What this skill does NOT do
 
-- Install or authenticate codex CLI — that's `/codex:setup` from the upstream plugin.
-- Replace `/codex:review` or `/codex:adversarial-review` — it calls them.
+- Install or authenticate codex CLI — direct the user to `npm i -g @openai/codex && codex login` if it's missing.
+- Wrap `openai/codex-plugin-cc` slash commands — codex-check calls the `codex` CLI directly via Bash; the upstream plugin is optional and can be used alongside for interactive `/codex:review` etc.
 - Modify code — codex-check is read-only review; user decides what to fix.
 - Run tests / typecheck / build — that's `superpowers:verification-before-completion`. Both can fire on the same change; they catch different bug classes.
