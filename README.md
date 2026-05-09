@@ -77,8 +77,9 @@ reporting completion when the diff touches any of:
 /codex-check
 /codex-check --base main
 /codex-check verify the cache invalidation logic
-/codex-check --background --base main
 ```
+
+(Background mode is on the v0.2.0 roadmap. v0.1.0 runs synchronously only — for very large diffs, expect 1–3 minutes blocking.)
 
 **Auto-trigger:**
 
@@ -137,4 +138,4 @@ MIT — see [LICENSE](LICENSE).
 
 ## Acknowledgments
 
-Builds on [openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc), the official OpenAI plugin that wraps the [Codex CLI](https://github.com/openai/codex) for Claude Code. Without their primitives, this plugin would have to reimplement diff scoping, codex invocation, and the entire app-server bridge.
+Inspired by [openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc), the official OpenAI plugin that exposes Codex inside Claude Code via slash commands. codex-check originally tried to wrap that plugin, but discovered Claude Code does not auto-route model-emitted slash commands — so we now call the [`codex` CLI](https://github.com/openai/codex) directly via Bash and have no hard dependency on it. Install `openai/codex-plugin-cc` alongside if you want interactive `/codex:review`, `/codex:rescue`, etc. — both plugins coexist and use the same underlying CLI.

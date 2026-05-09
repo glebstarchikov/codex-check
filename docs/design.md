@@ -5,6 +5,15 @@
 > Owner: Gleb
 > Distribution target: public GitHub repo, installable via Claude Code's `/plugin install` mechanism
 
+> ## ⚠️ Post-v0.1.0 architecture note
+>
+> The shipped v0.1.0 implementation diverged from this spec at the final commit.
+> The original architecture assumed `/codex-check` would invoke `/codex:adversarial-review` (a slash command provided by `openai/codex-plugin-cc`). During the smoke test we discovered **Claude Code does not auto-route model-emitted slash commands** — they appear as text only. That made "wrap a slash command from inside another slash command" structurally impossible.
+>
+> The pivot: codex-check now calls the `codex` CLI directly via Bash (`codex exec --skip-git-repo-check` with the focus text piped via heredoc; the agent runs `git diff` itself inside the prompt). The `openai/codex-plugin-cc` plugin became optional rather than required. See commit [`800bdbb`](https://github.com/glebstarchikov/codex-check/commit/800bdbb) for the full rationale.
+>
+> The body of this spec describes the pre-pivot design and is preserved as historical record. For the *shipped* architecture, read `skills/codex-check/SKILL.md` step 3, `commands/codex-check.md`, and `install.sh`'s `find_codex` function. The README accurately reflects what users actually get.
+
 ---
 
 ## 1. Problem
