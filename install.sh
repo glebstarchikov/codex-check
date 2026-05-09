@@ -28,11 +28,14 @@ link "$REPO_ROOT/commands/codex-check.md" "$COMMANDS_DIR/codex-check.md"
 link "$REPO_ROOT/commands/codex-check-setup.md" "$COMMANDS_DIR/codex-check-setup.md"
 
 # Detect whether openai/codex-plugin-cc is installed and warn if not.
-# Plugin caches live under ~/.claude/plugins/cache/<owner>/<repo>/.
-UPSTREAM_GLOB="$CLAUDE_DIR/plugins/cache/openai/codex-plugin-cc"
-if [[ ! -e "$UPSTREAM_GLOB" ]]; then
+# Claude Code stores plugin state under <owner>-<plugin> directories:
+#   ~/.claude/plugins/marketplaces/openai-codex/   ← created by `/plugin marketplace add`
+#   ~/.claude/plugins/cache/openai-codex/codex/    ← created by `/plugin install`
+# Either is sufficient evidence the upstream is set up.
+if [[ ! -d "$CLAUDE_DIR/plugins/marketplaces/openai-codex" \
+   && ! -d "$CLAUDE_DIR/plugins/cache/openai-codex/codex" ]]; then
   echo
-  echo "⚠️  openai/codex-plugin-cc not detected at $UPSTREAM_GLOB"
+  echo "⚠️  openai/codex-plugin-cc not detected under $CLAUDE_DIR/plugins/"
   echo "    codex-check is a wrapper on top of it. Install upstream first:"
   echo "      /plugin marketplace add openai/codex-plugin-cc"
   echo "      /plugin install codex@openai-codex"

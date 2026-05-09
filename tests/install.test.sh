@@ -38,12 +38,21 @@ if ! echo "$output" | grep -qi "codex-plugin-cc"; then
 fi
 pass "warning printed when upstream plugin is missing"
 
-echo "TEST: install.sh is silent about upstream when codex-plugin-cc is present"
-mkdir -p "$FAKE_HOME/.claude/plugins/cache/openai/codex-plugin-cc"
+echo "TEST: install.sh is silent about upstream when marketplace dir is present"
+mkdir -p "$FAKE_HOME/.claude/plugins/marketplaces/openai-codex"
 output="$(run_with_home "$FAKE_HOME" install.sh 2>&1)"
-if echo "$output" | grep -qi "missing.*codex-plugin-cc"; then
-  fail "should not warn when upstream plugin is detected"
+if echo "$output" | grep -qi "not detected"; then
+  fail "should not warn when upstream marketplace dir is registered"
 fi
-pass "no false warning when upstream is present"
+pass "no false warning when upstream marketplace dir is present"
+
+echo "TEST: install.sh is silent about upstream when plugin cache dir is present"
+rm -rf "$FAKE_HOME/.claude/plugins"
+mkdir -p "$FAKE_HOME/.claude/plugins/cache/openai-codex/codex"
+output="$(run_with_home "$FAKE_HOME" install.sh 2>&1)"
+if echo "$output" | grep -qi "not detected"; then
+  fail "should not warn when upstream cache dir is present"
+fi
+pass "no false warning when upstream cache dir is present"
 
 echo "ALL INSTALL TESTS PASSED"
