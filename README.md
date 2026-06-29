@@ -130,7 +130,7 @@ Removes the three symlinks. Does not touch the upstream codex plugin or your pro
 
 ## Contributing
 
-Issues and PRs welcome. The full design lives at [docs/design.md](docs/design.md).
+Issues and PRs welcome.
 
 ## License
 
