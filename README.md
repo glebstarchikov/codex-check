@@ -139,3 +139,6 @@ MIT — see [LICENSE](LICENSE).
 ## Acknowledgments
 
 Inspired by [openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc), the official OpenAI plugin that exposes Codex inside Claude Code via slash commands. codex-check originally tried to wrap that plugin, but discovered Claude Code does not auto-route model-emitted slash commands — so we now call the [`codex` CLI](https://github.com/openai/codex) directly via Bash and have no hard dependency on it. Install `openai/codex-plugin-cc` alongside if you want interactive `/codex:review`, `/codex:rescue`, etc. — both plugins coexist and use the same underlying CLI.
+
+---
+Part of what I build at [glebstarchikov.nl](https://glebstarchikov.nl).
