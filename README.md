@@ -2,15 +2,15 @@
 
 > A [Claude Code](https://claude.com/claude-code) plugin that adds auto-trigger boundaries, output triage, and per-project setup around the [OpenAI Codex CLI](https://github.com/openai/codex), so Claude reaches for a second-opinion review on the work that matters.
 
-**codex-check** calls `codex` directly. It does not require the [openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc) Claude Code plugin (though they coexist fine — install both if you also want interactive `/codex:review`, `/codex:rescue`, etc.).
+**codex-check** calls `codex` directly. It does not require the [openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc) Claude Code plugin (though they coexist fine; install both if you also want interactive `/codex:review`, `/codex:rescue`, etc.).
 
 ## What you get
 
-- **Auto-trigger** — Claude fires Codex review automatically on complex debugging or high-risk diffs (auth, migrations, websocket lifecycle, anything you list in your project's `CLAUDE.md`).
-- **`/codex-check`** — manual invocation with optional `--base <ref>` for branch review and free-text steering.
-- **`/codex-check-setup`** — one-time per-repo: Claude analyzes your codebase and drafts a `## Codex Check Triggers` section into `CLAUDE.md` listing the surfaces that should auto-fire.
-- **Output triage** — findings grouped by `[BLOCKER]/[CONCERN]/[NIT]`, disagreements surfaced explicitly (no dutiful agreement).
-- **Subagent integration** — works inside `superpowers:subagent-driven-development` flows: per-task fire in the subagent's worktree, post-integration fire on the parent's merged diff.
+- **Auto-trigger**: Claude fires Codex review automatically on complex debugging or high-risk diffs (auth, migrations, websocket lifecycle, anything you list in your project's `CLAUDE.md`).
+- **`/codex-check`**: manual invocation with optional `--base <ref>` for branch review and free-text steering.
+- **`/codex-check-setup`**: one-time per-repo. Claude analyzes your codebase and drafts a `## Codex Check Triggers` section into `CLAUDE.md` listing the surfaces that should auto-fire.
+- **Output triage**: findings grouped by `[BLOCKER]/[CONCERN]/[NIT]`, disagreements surfaced explicitly (no dutiful agreement).
+- **Subagent integration**: works inside `superpowers:subagent-driven-development` flows: per-task fire in the subagent's worktree, post-integration fire on the parent's merged diff.
 
 ## Prerequisites
 
@@ -19,7 +19,7 @@
 
 ## Install
 
-**Step 1 — install the codex CLI** (once globally):
+**Step 1: install the codex CLI** (once globally):
 
 ```bash
 npm install -g @openai/codex
@@ -27,7 +27,7 @@ codex login          # OAuth via your ChatGPT account
 # OR: export OPENAI_API_KEY=sk-...    # in your shell rc, for API-key auth
 ```
 
-**Step 2 — install codex-check**:
+**Step 2: install codex-check**:
 
 ```bash
 git clone https://github.com/glebstarchikov/codex-check.git ~/codex-check
@@ -35,7 +35,7 @@ cd ~/codex-check
 ./install.sh
 ```
 
-`install.sh` symlinks the skill and slash commands into `~/.claude/`. Symlinks (not copies) so `git pull` updates the live install. It also detects the `codex` binary and prints a clear hint if it isn't found — searches `$PATH` first, then `$HOME/.npm-global/bin`, `$HOME/.bun/bin`, `$HOME/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`.
+`install.sh` symlinks the skill and slash commands into `~/.claude/`. Symlinks (not copies) so `git pull` updates the live install. It also detects the `codex` binary and prints a clear hint if it isn't found. It searches `$PATH` first, then `$HOME/.npm-global/bin`, `$HOME/.bun/bin`, `$HOME/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`.
 
 **Manual install** (if you prefer not to run the script):
 
@@ -63,10 +63,10 @@ If you'd rather write the triggers section by hand, here's a template:
 Fire `/codex-check` (or auto-invoke via the codex-check skill) before
 reporting completion when the diff touches any of:
 
-- `path/to/risky/area` — one-line rationale
-- `another/risky/path` — why this one matters
+- `path/to/risky/area`: one-line rationale
+- `another/risky/path`: why this one matters
 
-**Why these surfaces:** <one paragraph explaining what these have in common — why bugs here are catastrophic vs annoying>.
+**Why these surfaces:** <one paragraph explaining what these have in common, why bugs here are catastrophic vs annoying>.
 ```
 
 ## Usage
@@ -79,7 +79,7 @@ reporting completion when the diff touches any of:
 /codex-check verify the cache invalidation logic
 ```
 
-(Background mode is on the v0.2.0 roadmap. v0.1.0 runs synchronously only — for very large diffs, expect 1–3 minutes blocking.)
+(Background mode is on the v0.2.0 roadmap. v0.1.0 runs synchronously only; for very large diffs, expect 1 to 3 minutes blocking.)
 
 **Auto-trigger:**
 
@@ -92,7 +92,7 @@ Claude fires `/codex-check` on its own when it judges the current work matches t
 3. **Skill runs** `codex exec` via Bash, piping in a prompt that tells the agent to `git diff` and review against the 3 axes. Codex returns findings tagged `[BLOCKER]/[CONCERN]/[NIT]` plus a one-line verdict (`SHIP / FIX-FIRST / DISCUSS`).
 4. **Claude triages the output:** groups by severity, surfaces BLOCKERs first, evaluates each finding against its own reading of the diff, surfaces disagreements explicitly, asks you which to address.
 
-For branch-level review, the skill includes a "diff against `<base>...HEAD`" instruction in the prompt instead of relying on a CLI flag (the upstream `codex review --uncommitted` is mutually exclusive with custom prompts at the CLI level — bare `codex exec` is the workaround).
+For branch-level review, the skill includes a "diff against `<base>...HEAD`" instruction in the prompt instead of relying on a CLI flag (the upstream `codex review --uncommitted` is mutually exclusive with custom prompts at the CLI level, so bare `codex exec` is the workaround).
 
 ## Compatibility
 
@@ -104,19 +104,19 @@ For branch-level review, the skill includes a "diff against `<base>...HEAD`" ins
 
 ### Optional: alongside `openai/codex-plugin-cc`
 
-codex-check has **no hard dependency** on the official OpenAI plugin — both call the same `codex` CLI. If you also install `openai/codex-plugin-cc`, you get a complementary set of interactive slash commands that play well alongside ours:
+codex-check has **no hard dependency** on the official OpenAI plugin; both call the same `codex` CLI. If you also install `openai/codex-plugin-cc`, you get a complementary set of interactive slash commands that play well alongside ours:
 
 | Upstream command | When to use |
 |---|---|
 | `/codex:review` / `/codex:adversarial-review` | Manually fire a Codex review with the upstream's interactive UX (streaming output, follow-up prompts). |
-| `/codex:rescue` | Delegate a *task* (investigation, fix attempt) to Codex — different use case from review. |
+| `/codex:rescue` | Delegate a *task* (investigation, fix attempt) to Codex, a different use case from review. |
 | `/codex:status` / `/codex:result` / `/codex:cancel` | Manage in-flight Codex background jobs (queued by `--background` from `/codex:adversarial-review`). |
-| `/codex:setup --enable-review-gate` | Stop-hook that auto-fires Codex on every Claude turn — drains quota fast; opt-in only. |
+| `/codex:setup --enable-review-gate` | Stop-hook that auto-fires Codex on every Claude turn, drains quota fast; opt-in only. |
 
 ## Limitations
 
 - Uses your Codex usage quota (ChatGPT subscription quota or OpenAI API tokens).
-- ~30–90s latency per synchronous call (longer for big diffs).
+- ~30 to 90s latency per synchronous call (longer for big diffs).
 - Requires a git repo (uses `git diff` for diff scoping).
 - v0.1.0 runs synchronously only. Background mode is on the roadmap; for now, install `openai/codex-plugin-cc` alongside if you need `--background` behavior on large diffs.
 
@@ -134,11 +134,11 @@ Issues and PRs welcome.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).
 
 ## Acknowledgments
 
-Inspired by [openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc), the official OpenAI plugin that exposes Codex inside Claude Code via slash commands. codex-check originally tried to wrap that plugin, but discovered Claude Code does not auto-route model-emitted slash commands — so we now call the [`codex` CLI](https://github.com/openai/codex) directly via Bash and have no hard dependency on it. Install `openai/codex-plugin-cc` alongside if you want interactive `/codex:review`, `/codex:rescue`, etc. — both plugins coexist and use the same underlying CLI.
+Inspired by [openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc), the official OpenAI plugin that exposes Codex inside Claude Code via slash commands. codex-check originally tried to wrap that plugin, but discovered Claude Code does not auto-route model-emitted slash commands, so we now call the [`codex` CLI](https://github.com/openai/codex) directly via Bash and have no hard dependency on it. Install `openai/codex-plugin-cc` alongside if you want interactive `/codex:review`, `/codex:rescue`, etc. Both plugins coexist and use the same underlying CLI.
 
 ---
 Part of what I build at [glebstarchikov.nl](https://glebstarchikov.nl).
